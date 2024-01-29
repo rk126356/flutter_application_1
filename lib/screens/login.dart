@@ -1,7 +1,9 @@
-import 'dart:convert';
+// ignore_for_file: use_build_context_synchronously
 
+import 'package:appwrite/appwrite.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 
 import '../provider/user_provider.dart';
@@ -18,49 +20,53 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
+  Client client = Client();
+  late Account account;
+  bool _isLoading = false;
+
   Future<void> login() async {
     String errorMessage = '';
 
     if (phoneController.text.isEmpty || passwordController.text.isEmpty) {
-      errorMessage = 'Please enter both Phone/Email and password';
+      errorMessage = 'Please enter both Email and password';
       _showSnackbar(errorMessage);
       return;
     }
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      // ignore: unused_local_variable
+      final response = await account.createEmailSession(
+        email: phoneController.text.trim(),
+        password: passwordController.text.trim(),
+      );
 
-    const String apiUrl = 'https://gyanmeeti.in/API/student_login.php';
-    final response = await http.post(
-      Uri.parse(apiUrl),
-      body: {
-        'phone': phoneController.text,
-        'password': passwordController.text,
-      },
-    );
+      final userResponse = await account.get();
 
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = json.decode(response.body);
+      Provider.of<UserProvider>(context, listen: false).updateUserData(
+        newUserId: userResponse.$id,
+        newName: userResponse.name,
+        newEmail: userResponse.email,
+      );
 
-      if (data['message'] == 'Login successful') {
-        // Login successful, update user data using the provider
-        // ignore: use_build_context_synchronously
-        Provider.of<UserProvider>(context, listen: false).updateUserData(
-          newUserId: data['user'][0]['id'],
-          newName: data['user'][0]['name'],
-          newPhone: data['user'][0]['phone'],
-          newEmail: data['user'][0]['email'],
-        );
-
-        // ignore: use_build_context_synchronously
-        Navigator.pop(context);
-      } else {
-        // Login failed, display error message
-        errorMessage = 'Login failed: ${data['message']}';
-        _showSnackbar(errorMessage);
+      Navigator.pop(context);
+      Fluttertoast.showToast(
+        msg: "Login Successful",
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.blue,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error during login: $e');
       }
-    } else {
-      // HTTP request failed, display error message
-      errorMessage = 'HTTP request failed with status ${response.statusCode}';
-      _showSnackbar(errorMessage);
+      _showSnackbar('Login failed');
     }
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   void _showSnackbar(String message) {
@@ -70,6 +76,16 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.red,
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    client
+        .setEndpoint('https://cloud.appwrite.io/v1')
+        .setProject('65b5455e784d85ecd383')
+        .setSelfSigned(status: true);
+    account = Account(client);
   }
 
   @override
@@ -101,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextFormField(
                   controller: phoneController,
                   decoration: InputDecoration(
-                    labelText: 'Phone/Email',
+                    labelText: 'Email',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10.0),
                     ),
@@ -145,22 +161,24 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: login,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    textStyle: const TextStyle(color: Colors.deepPurple),
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 16, horizontal: 30),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                    ),
-                  ),
-                  child: const Text(
-                    'Login',
-                    style: TextStyle(color: Colors.deepPurple),
-                  ),
-                ),
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
+                        onPressed: login,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          textStyle: const TextStyle(color: Colors.deepPurple),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 16, horizontal: 30),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.0),
+                          ),
+                        ),
+                        child: const Text(
+                          'Login',
+                          style: TextStyle(color: Colors.deepPurple),
+                        ),
+                      ),
                 const SizedBox(height: 22),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,

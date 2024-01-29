@@ -19,7 +19,6 @@ class UserProvider extends ChangeNotifier {
     _user = User.fromJson({
       'userId': prefs.getString('userId') ?? '',
       'name': prefs.getString('name') ?? '',
-      'phone': prefs.getString('phone') ?? '',
       'email': prefs.getString('email') ?? '',
     });
     if (_user.name.isNotEmpty) {
@@ -33,7 +32,6 @@ class UserProvider extends ChangeNotifier {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     prefs.setString('userId', _user.userId);
     prefs.setString('name', _user.name);
-    prefs.setString('phone', _user.phone);
     prefs.setString('email', _user.email);
   }
 
@@ -41,13 +39,11 @@ class UserProvider extends ChangeNotifier {
   void updateUserData({
     required String newUserId,
     required String newName,
-    required String newPhone,
     required String newEmail,
   }) {
     _user = User(
       userId: newUserId,
       name: newName,
-      phone: newPhone,
       email: newEmail,
     );
     if (_user.name.isNotEmpty) {

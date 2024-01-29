@@ -1,9 +1,15 @@
-import 'dart:convert';
+// ignore_for_file: use_build_context_synchronously
+
+import 'dart:math';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/provider/user_provider.dart';
 import 'package:flutter_application_1/screens/login.dart';
-import 'package:http/http.dart' as http;
+import 'package:appwrite/appwrite.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
+
+import '../provider/user_provider.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -16,65 +22,62 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController nameController = TextEditingController();
-  final TextEditingController phoneController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
+  bool _isLoading = false;
+
   String errorMessage = '';
+
+  Client client = Client();
+  late Account account;
 
   Future<void> register() async {
     if (_formKey.currentState!.validate()) {
-      const String apiUrl = 'https://gyanmeeti.in/API/student_register.php';
+      setState(() {
+        _isLoading = true;
+      });
       try {
-        final response = await http.post(
-          Uri.parse(apiUrl),
-          body: {
-            'name': nameController.text,
-            'phone': phoneController.text,
-            'email': emailController.text,
-            'password': passwordController.text,
-          },
+        final userId = _generateRandomUserId();
+        // ignore: unused_local_variable
+        final response = await account.create(
+          email: emailController.text.trim(),
+          password: passwordController.text.trim(),
+          name: nameController.text.trim(),
+          userId: userId,
         );
 
-        if (response.statusCode == 200) {
-          final Map<String, dynamic> data = json.decode(response.body);
+        // Update user data using the provider
+        Provider.of<UserProvider>(context, listen: false).updateUserData(
+          newUserId: userId,
+          newName: nameController.text,
+          newEmail: emailController.text,
+        );
 
-          if (data['message'] == 'Registration Successful') {
-            setState(() {
-              errorMessage = '';
-            });
+        Navigator.pop(context);
 
-            print('Registration successful: ${data['message']}');
-
-            // Update user data using the provider
-            Provider.of<UserProvider>(context, listen: false).updateUserData(
-              newUserId: '0',
-              newName: nameController.text,
-              newPhone: phoneController.text,
-              newEmail: emailController.text,
-            );
-
-            Navigator.pop(context);
-          } else {
-            setState(() {
-              errorMessage = 'Registration failed: ${data['message']}';
-            });
-            _showSnackbar(errorMessage);
-          }
-        } else {
-          setState(() {
-            errorMessage =
-                'HTTP request failed with status ${response.statusCode}';
-          });
-          _showSnackbar(errorMessage);
+        Fluttertoast.showToast(
+            msg: "Registration Successfull",
+            timeInSecForIosWeb: 1,
+            backgroundColor: Colors.blue,
+            textColor: Colors.white,
+            fontSize: 16.0);
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error during registration: $e');
         }
-      } catch (error) {
-        setState(() {
-          errorMessage = 'Error: $error';
-        });
-        _showSnackbar(errorMessage);
+        _showSnackbar(e.toString());
       }
+      setState(() {
+        _isLoading = false;
+      });
     }
+  }
+
+  String _generateRandomUserId() {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final random = Random().nextInt(1000);
+    return '$timestamp$random';
   }
 
   void _showSnackbar(String message) {
@@ -84,6 +87,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
         backgroundColor: Colors.red,
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    client
+        .setEndpoint('https://cloud.appwrite.io/v1')
+        .setProject('65b5455e784d85ecd383')
+        .setSelfSigned(status: true);
+    account = Account(client);
   }
 
   @override
@@ -122,29 +135,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: 'Phone',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(color: Colors.deepPurple),
-                      borderRadius: BorderRadius.circular(10.0),
-                    ),
-                    prefixIcon:
-                        const Icon(Icons.phone, color: Colors.deepPurple),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.length < 9) {
-                      return 'Please enter your phone number';
                     }
                     return null;
                   },
@@ -198,22 +188,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: register,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
-                    textStyle: const TextStyle(color: Colors.white),
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 16, horizontal: 30),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                    ),
-                  ),
-                  child: const Text(
-                    'Register',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
+                        onPressed: register,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurple,
+                          textStyle: const TextStyle(color: Colors.white),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 16, horizontal: 30),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.0),
+                          ),
+                        ),
+                        child: const Text(
+                          'Register',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
                 const SizedBox(height: 22),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,

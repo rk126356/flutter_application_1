@@ -1,13 +1,11 @@
 class User {
   late String userId;
   late String name;
-  late String phone;
   late String email;
 
   User({
     required this.userId,
     required this.name,
-    required this.phone,
     required this.email,
   });
 
@@ -15,7 +13,6 @@ class User {
     return User(
       userId: json['userId'],
       name: json['name'],
-      phone: json['phone'],
       email: json['email'],
     );
   }
@@ -24,7 +21,6 @@ class User {
     return {
       'userId': userId,
       'name': name,
-      'phone': phone,
       'email': email,
     };
   }

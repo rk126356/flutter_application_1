@@ -28,7 +28,6 @@ class HomeScreen extends StatelessWidget {
               userProvider.updateUserData(
                 newUserId: '',
                 newName: '',
-                newPhone: '',
                 newEmail: '',
               );
 
@@ -72,7 +71,6 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   buildUserInfo('Name', userProvider.user.name),
-                  buildUserInfo('Phone', userProvider.user.phone),
                   buildUserInfo('Email', userProvider.user.email),
                 ],
               ),
